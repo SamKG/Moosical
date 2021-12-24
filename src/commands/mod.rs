@@ -1,15 +1,21 @@
 mod ping;
 mod search;
 
-use twilight_http::response::marker::EmptyBody;
-use twilight_http::response::ResponseFuture;
-use twilight_http::{Client as HttpClient, Error, Response};
+use std::pin::Pin;
+
+use futures::Future;
+use twilight_http::{Client as HttpClient, Error};
 use twilight_model::application::command::Command;
 use twilight_model::application::interaction::Interaction;
 use twilight_model::gateway::payload::incoming::InteractionCreate;
 
+type CommandCallback = fn(
+    http: &HttpClient,
+    interaction: Interaction,
+) -> Pin<Box<dyn Future<Output = Result<(), Error>> + '_ + Send>>;
+
 pub struct CommandHandler {
-    execute: fn(http: &HttpClient, interaction: Interaction) -> ResponseFuture<EmptyBody>,
+    execute: CommandCallback,
     get_command: fn() -> Command,
     name: String,
 }
@@ -28,7 +34,7 @@ pub fn get_all_commands() -> Vec<Command> {
 pub async fn handle_interaction(
     http: &HttpClient,
     interaction_create: Box<InteractionCreate>,
-) -> Result<Response<EmptyBody>, Error> {
+) -> Pin<Box<dyn Future<Output = Result<(), Error>> + '_ + Send>> {
     let commands_list = get_all_handlers();
     let command = match interaction_create.0 {
         Interaction::ApplicationCommand(ref interaction) => commands_list
@@ -36,11 +42,12 @@ pub async fn handle_interaction(
             .find(|x| x.name == interaction.data.name),
         _ => None,
     };
-    match command {
-        None => panic!(
+    if let Some(command) = command {
+        (command.execute)(http, interaction_create.0)
+    } else {
+        panic!(
             "Failed to handle interaction of unknown type {:?}",
             interaction_create
-        ),
-        Some(command) => (command.execute)(http, interaction_create.0).await,
+        )
     }
 }

@@ -66,7 +66,10 @@ async fn handle_event(
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     match event {
         Event::InteractionCreate(interaction) => {
-            handle_interaction(http.deref(), interaction).await?;
+            // println!("handle interaction {:#?}", interaction);
+            if let Err(error) = handle_interaction(http.deref(), interaction).await.await {
+                panic!("Failed to handle interaction with error {:#?}", error)
+            }
         }
         Event::ShardConnected(_) => {
             println!("Connected on shard {}", shard_id);
