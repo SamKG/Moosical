@@ -1,5 +1,5 @@
 use futures::stream::StreamExt;
-use moosicyak::commands::{get_all_commands, handle_interaction};
+use moosicyak::commands::{get_application_commands, handle_interaction};
 use serde::Deserialize;
 use std::{error::Error, num::NonZeroU64, ops::Deref, sync::Arc};
 use twilight_cache_inmemory::{InMemoryCache, ResourceType};
@@ -85,7 +85,7 @@ async fn handle_event(
             println!("Set guid commands for appid {:?}", http.application_id());
             http.set_guild_commands(
                 GuildId::from(NonZeroU64::new(458035170608545802).unwrap()),
-                &get_all_commands()
+                &get_application_commands()
                     .iter()
                     .map(|x| x.deref().deref())
                     .cloned()
