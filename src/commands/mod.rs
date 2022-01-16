@@ -1,35 +1,18 @@
-mod ping;
-mod search;
-
+pub mod application;
 use std::error::Error;
-use std::ops::Deref;
 
-use async_trait::async_trait;
+use application::get_application_commands;
 use twilight_http::Client as HttpClient;
-use twilight_model::application::command::Command;
 use twilight_model::application::interaction::Interaction;
 use twilight_model::gateway::payload::incoming::InteractionCreate;
-
-#[async_trait]
-pub trait ApplicationCommandWrapper: Deref<Target = Command> + Sync + Send {
-    async fn execute(
-        &self,
-        http: &HttpClient,
-        interaction: Interaction,
-    ) -> Result<(), Box<dyn Error + Send + Sync>>;
-}
-
-pub fn get_application_commands() -> Vec<Box<dyn ApplicationCommandWrapper>> {
-    vec![Box::new(ping::Ping::new()), Box::new(search::Search::new())]
-}
 
 pub async fn handle_interaction(
     http: &HttpClient,
     interaction_create: Box<InteractionCreate>,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let commands_list = get_application_commands();
     match interaction_create.0 {
         Interaction::ApplicationCommand(ref interaction) => {
+            let commands_list = get_application_commands();
             let command = commands_list
                 .iter()
                 .find(|x| x.name == interaction.data.name)

@@ -1,5 +1,5 @@
 use futures::stream::StreamExt;
-use moosicyak::commands::{get_application_commands, handle_interaction};
+use moosicyak::commands::{application::get_application_commands, handle_interaction};
 use serde::Deserialize;
 use std::{error::Error, num::NonZeroU64, ops::Deref, sync::Arc};
 use twilight_cache_inmemory::{InMemoryCache, ResourceType};
