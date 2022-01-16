@@ -78,14 +78,6 @@ impl ApplicationCommandWrapper for Search {
                             })
                         })
                         .collect();
-                    // let select_menu = Component::ActionRow(SelectMenu {
-                    //     custom_id: "SomeString1".into(),
-                    //     disabled: false,
-                    //     max_values: None,
-                    //     min_values: None,
-                    //     options: menu_options,
-                    //     placeholder: Some("Select an option to play!".into()),
-                    // });
                     let action_row = Component::ActionRow(ActionRow {
                         components: menu_options,
                     });
