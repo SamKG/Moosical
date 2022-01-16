@@ -1,53 +1,46 @@
 mod ping;
 mod search;
 
-use std::pin::Pin;
+use std::error::Error;
+use std::ops::Deref;
 
-use futures::Future;
-use twilight_http::{Client as HttpClient, Error};
+use async_trait::async_trait;
+use twilight_http::Client as HttpClient;
 use twilight_model::application::command::Command;
-use twilight_model::application::interaction::Interaction;
+use twilight_model::application::interaction::{Interaction};
 use twilight_model::gateway::payload::incoming::InteractionCreate;
 
-type CommandCallback = fn(
-    http: &HttpClient,
-    interaction: Interaction,
-) -> Pin<Box<dyn Future<Output = Result<(), Error>> + '_ + Send>>;
-
-pub struct CommandHandler {
-    execute: CommandCallback,
-    get_command: fn() -> Command,
-    name: String,
+#[async_trait]
+pub trait ApplicationCommandWrapper: Deref<Target = Command> + Sync + Send {
+    async fn execute(
+        &self,
+        http: &HttpClient,
+        interaction: Interaction,
+    ) -> Result<(), Box<dyn Error + Send + Sync>>;
 }
 
-pub fn get_all_handlers() -> Vec<CommandHandler> {
-    vec![ping::create_handler(), search::create_handler()]
-}
-
-pub fn get_all_commands() -> Vec<Command> {
-    get_all_handlers()
-        .iter()
-        .map(|x| (x.get_command)())
-        .collect()
+pub fn get_all_commands() -> Vec<Box<dyn ApplicationCommandWrapper>> {
+    vec![Box::new(ping::Ping::new()), Box::new(search::Search::new())]
 }
 
 pub async fn handle_interaction(
     http: &HttpClient,
     interaction_create: Box<InteractionCreate>,
-) -> Pin<Box<dyn Future<Output = Result<(), Error>> + '_ + Send>> {
-    let commands_list = get_all_handlers();
-    let command = match interaction_create.0 {
-        Interaction::ApplicationCommand(ref interaction) => commands_list
-            .iter()
-            .find(|x| x.name == interaction.data.name),
-        _ => None,
-    };
-    if let Some(command) = command {
-        (command.execute)(http, interaction_create.0)
-    } else {
-        panic!(
-            "Failed to handle interaction of unknown type {:?}",
-            interaction_create
-        )
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+    let commands_list = get_all_commands();
+    match interaction_create.0 {
+        Interaction::ApplicationCommand(ref interaction) => {
+            let command = commands_list
+                .iter()
+                .find(|x| x.name == interaction.data.name)
+                .unwrap();
+            command.execute(http, interaction_create.0).await?;
+            Ok(())
+        }
+        Interaction::MessageComponent(ref interaction) => {
+            println!("Recv msg component {:?}", interaction);
+            Ok(())
+        }
+        _ => panic!("Received invalid command!"),
     }
 }

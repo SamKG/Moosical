@@ -1,91 +1,120 @@
-use std::pin::Pin;
+use crate::helpers::youtube;
 
-use super::CommandHandler;
-use futures::Future;
-
+use super::ApplicationCommandWrapper;
+use async_trait::async_trait;
+use std::error::Error;
+use std::ops::Deref;
 use twilight_http::Client as HttpClient;
-use twilight_http::Error;
 use twilight_model::application::command::{Command, CommandType};
+use twilight_model::application::component::button::ButtonStyle;
+
+use twilight_model::application::component::{ActionRow, Button, Component};
 use twilight_model::application::interaction::application_command::CommandOptionValue;
 use twilight_model::application::interaction::Interaction;
 use twilight_model::{application::callback::InteractionResponse, channel::message::MessageFlags};
 use twilight_util::builder::command::{CommandBuilder, StringBuilder};
 use twilight_util::builder::CallbackDataBuilder;
 
-use youtube_dl::{SearchOptions, YoutubeDl};
-
 const COMMAND_NAME: &str = "search";
-const COMMAND_DESCRIPTION: &str = "Search for a YouTube video by name";
+const COMMAND_DESCRIPTION: &str = "Search for a song to play";
+pub(crate) struct Search(Command);
 
-fn execute(
-    http: &HttpClient,
-    interaction: Interaction,
-) -> Pin<Box<dyn Future<Output = Result<(), Error>> + '_ + Send>> {
-    if let Interaction::ApplicationCommand(interaction) = interaction {
-        Box::pin(async move {
-            println!("async start");
+impl Search {
+    pub(crate) fn new() -> Search {
+        Search(
+            CommandBuilder::new(
+                COMMAND_NAME.into(),
+                COMMAND_DESCRIPTION.into(),
+                CommandType::ChatInput,
+            )
+            .option(
+                StringBuilder::new("query".to_string(), "song name to search for".to_string())
+                    .required(true),
+            )
+            .build(),
+        )
+    }
+}
+
+impl Deref for Search {
+    type Target = Command;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+#[async_trait]
+impl ApplicationCommandWrapper for Search {
+    async fn execute(
+        &self,
+        http: &HttpClient,
+        interaction: Interaction,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        if let Interaction::ApplicationCommand(interaction) = interaction {
             let callback = CallbackDataBuilder::new()
-                .content("Searching..".into())
+                .content("Searching...".into())
                 .flags(MessageFlags::EPHEMERAL)
                 .build();
 
             let response = InteractionResponse::ChannelMessageWithSource(callback);
-            http.interaction_callback(interaction.id, &interaction.token, &response)
-                .exec()
-                .await?;
-            let query = &interaction.data.options[0].value;
+            let search_msg_fut = http
+                .interaction_callback(interaction.id, &interaction.token, &response)
+                .exec();
+            let query = interaction.data.options[0].value.clone();
             if let CommandOptionValue::String(query) = query {
-                let results = YoutubeDl::search_for(&SearchOptions::youtube(query).with_count(10))
-                    .youtube_dl_path("/data/samyakg/anaconda3/bin/youtube-dl")
-                    .run()
-                    .unwrap();
-                match results {
-                    youtube_dl::YoutubeDlOutput::Playlist(results) => {
-                        if let Some(r) = results.entries {
-                            http.delete_interaction_original(&interaction.token)
-                                .unwrap()
-                                .exec()
-                                .await?;
-                            // http.interaction_callback(
-                            //     interaction.id,
-                            //     &interaction.token,
-                            //     &response,
-                            // )
-                            // .exec()
-                            // .await?;
-                            for video in r {
-                                println!("vid res {:#?}", video.title);
-                            }
-                        }
+                let yt_fut = async move {
+                    let results = youtube::search_for(&query, 5).await?;
+                    let menu_options = results
+                        .iter()
+                        .map(|v| {
+                            Component::Button(Button {
+                                emoji: None,
+                                label: Some(v.title.clone()),
+                                custom_id: Some(v.url.as_ref().unwrap().clone()),
+                                disabled: false,
+                                style: ButtonStyle::Primary,
+                                url: None,
+                            })
+                        })
+                        .collect();
+                    // let select_menu = Component::ActionRow(SelectMenu {
+                    //     custom_id: "SomeString1".into(),
+                    //     disabled: false,
+                    //     max_values: None,
+                    //     min_values: None,
+                    //     options: menu_options,
+                    //     placeholder: Some("Select an option to play!".into()),
+                    // });
+                    let action_row = Component::ActionRow(ActionRow {
+                        components: menu_options,
+                    });
+                    let s = format!(
+                        "Searched for `{}` and found {} results:",
+                        query,
+                        results.len()
+                    );
+                    http.update_interaction_original(&interaction.token)?
+                        .content(Some(&s))?
+                        .components(Some(&[action_row]))?
+                        .exec()
+                        .await?;
+                    println!("handle play with id: {}", interaction.id);
+                    for video in results {
+                        println!("vid res {:#?}", video.title);
                     }
-                    youtube_dl::YoutubeDlOutput::SingleVideo(_) => println!("recv singlevid"),
-                }
+                    Ok::<(), Box<dyn Error + Send + Sync>>(())
+                };
+                search_msg_fut.await?;
+
+                yt_fut.await?;
+
+                Ok(())
             } else {
                 panic!("Invalid query!");
             }
-            Ok::<(), Error>(())
-        })
-    } else {
-        panic!("Tried to use unhandled interaction type {:#?}", interaction)
-    }
-}
-
-fn get_command() -> Command {
-    CommandBuilder::new(
-        COMMAND_NAME.into(),
-        COMMAND_DESCRIPTION.into(),
-        CommandType::ChatInput,
-    )
-    .option(
-        StringBuilder::new("query".into(), "What to search for on YouTube".into()).required(true),
-    )
-    .build()
-}
-
-pub fn create_handler() -> CommandHandler {
-    CommandHandler {
-        execute,
-        get_command,
-        name: COMMAND_NAME.into(),
+        } else {
+            panic!("Expected application command interaction!");
+        }
     }
 }

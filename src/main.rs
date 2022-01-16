@@ -1,17 +1,32 @@
 use futures::stream::StreamExt;
 use moosicyak::commands::{get_all_commands, handle_interaction};
-use std::{env, error::Error, ops::Deref, sync::Arc};
+use serde::Deserialize;
+use std::{error::Error, num::NonZeroU64, ops::Deref, sync::Arc};
 use twilight_cache_inmemory::{InMemoryCache, ResourceType};
 use twilight_gateway::{
     cluster::{Cluster, ShardScheme},
     Event, Intents,
 };
 use twilight_http::Client as HttpClient;
-use twilight_model::id::{ApplicationId, GuildId};
+use twilight_model::{
+    application::command::Command,
+    id::{ApplicationId, GuildId},
+};
+
+#[derive(Deserialize)]
+struct DiscordConfig {
+    token: String,
+    app_id: NonZeroU64,
+}
+#[derive(Deserialize)]
+struct Config {
+    discord: DiscordConfig,
+}
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
-    let token = env::var("DISCORD_TOKEN")?;
+async fn main() -> Result<(), Box<dyn Error + Send + Sync + Send + Sync>> {
+    let config_string = std::fs::read_to_string("config.toml")?;
+    let config: Config = toml::from_str(&config_string)?;
 
     // This is also the default.
     let scheme = ShardScheme::Auto;
@@ -20,7 +35,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     // messages in a guild and direct messages.
     let intents = Intents::GUILD_MESSAGES | Intents::DIRECT_MESSAGES;
 
-    let (cluster, mut events) = Cluster::builder(&token, intents)
+    let (cluster, mut events) = Cluster::builder(config.discord.token.clone(), intents)
         .shard_scheme(scheme)
         .build()
         .await?;
@@ -36,11 +51,8 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     // The http client is seperate from the gateway, so startup a new
     // one, also use Arc such that it can be cloned to other threads.
-    let http = Arc::new(HttpClient::new(token));
-    let application_id: String = env::var("DISCORD_APP_ID")?;
-    http.set_application_id(ApplicationId::from(
-        std::num::NonZeroU64::new(application_id.parse()?).unwrap(),
-    ));
+    let http = Arc::new(HttpClient::new(config.discord.token.clone()));
+    http.set_application_id(ApplicationId::from(config.discord.app_id));
     // Since we only care about messages, make the cache only process messages.
     let cache = InMemoryCache::builder()
         .resource_types(ResourceType::MESSAGE)
@@ -66,17 +78,18 @@ async fn handle_event(
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     match event {
         Event::InteractionCreate(interaction) => {
-            // println!("handle interaction {:#?}", interaction);
-            if let Err(error) = handle_interaction(http.deref(), interaction).await.await {
-                panic!("Failed to handle interaction with error {:#?}", error)
-            }
+            handle_interaction(http.deref(), interaction).await?;
         }
         Event::ShardConnected(_) => {
             println!("Connected on shard {}", shard_id);
             println!("Set guid commands for appid {:?}", http.application_id());
             http.set_guild_commands(
-                GuildId::from(std::num::NonZeroU64::new(458035170608545802).unwrap()),
-                &get_all_commands(),
+                GuildId::from(NonZeroU64::new(458035170608545802).unwrap()),
+                &get_all_commands()
+                    .iter()
+                    .map(|x| x.deref().deref())
+                    .cloned()
+                    .collect::<Vec<Command>>(),
             )?
             .exec()
             .await?;
