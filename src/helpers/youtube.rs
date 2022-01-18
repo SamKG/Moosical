@@ -1,4 +1,3 @@
-use rustube::Id;
 use std::{
     error::Error,
     path::PathBuf,
@@ -8,6 +7,7 @@ use youtube_dl::{SearchOptions, SingleVideo, YoutubeDl, YoutubeDlOutput};
 
 const YT_DLP_PATH: &str = "/data/samyakg/anaconda3/bin/yt-dlp";
 const AUDIO_DOWNLOAD_PATH: &str = "/dev/shm";
+
 
 pub(crate) async fn search_for(
     query: &str,

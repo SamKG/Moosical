@@ -1,29 +1,36 @@
 pub mod application;
-use std::error::Error;
+pub mod message;
+use crate::state::ApplicationState;
 
+use self::message::get_message_components;
 use application::get_application_commands;
-use twilight_http::Client as HttpClient;
+use std::error::Error;
 use twilight_model::application::interaction::Interaction;
 use twilight_model::gateway::payload::incoming::InteractionCreate;
 
 pub async fn handle_interaction(
-    http: &HttpClient,
+    appstate: &ApplicationState,
     interaction_create: Box<InteractionCreate>,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     match interaction_create.0 {
         Interaction::ApplicationCommand(ref interaction) => {
-            let commands_list = get_application_commands();
-            let command = commands_list
+            let commands = get_application_commands();
+            let handler = commands
                 .iter()
                 .find(|x| x.name == interaction.data.name)
                 .unwrap();
-            command.execute(http, interaction_create.0).await?;
+            handler.execute(appstate, interaction_create.0).await?;
             Ok(())
         }
         Interaction::MessageComponent(ref interaction) => {
-            println!("Recv msg component {:?}", interaction);
+            let message_components = get_message_components();
+            let handler = message_components
+                .iter()
+                .find(|x| x.name == interaction.message.interaction.as_ref().unwrap().name)
+                .unwrap();
+            handler.execute(appstate, interaction_create.0).await?;
             Ok(())
         }
-        _ => panic!("Received invalid command!"),
+        _ => panic!("Received invalid interaction!"),
     }
 }

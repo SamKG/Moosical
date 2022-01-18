@@ -1,7 +1,10 @@
-use futures::stream::StreamExt;
-use moosicyak::commands::{application::get_application_commands, handle_interaction};
+use futures::{lock::Mutex, stream::StreamExt};
+use moosicyak::{
+    commands::{application::get_application_commands, handle_interaction},
+    state::ApplicationState,
+};
 use serde::Deserialize;
-use std::{error::Error, num::NonZeroU64, ops::Deref, sync::Arc};
+use std::{collections::HashMap, error::Error, num::NonZeroU64, ops::Deref, sync::Arc};
 use twilight_cache_inmemory::{InMemoryCache, ResourceType};
 use twilight_gateway::{
     cluster::{Cluster, ShardScheme},
@@ -51,8 +54,14 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync + Send + Sync>> {
 
     // The http client is seperate from the gateway, so startup a new
     // one, also use Arc such that it can be cloned to other threads.
-    let http = Arc::new(HttpClient::new(config.discord.token.clone()));
+    let http = HttpClient::new(config.discord.token.clone());
     http.set_application_id(ApplicationId::from(config.discord.app_id));
+
+    let appstate = Arc::new(ApplicationState {
+        http,
+        guild_states: Mutex::new(HashMap::new()),
+    });
+
     // Since we only care about messages, make the cache only process messages.
     let cache = InMemoryCache::builder()
         .resource_types(ResourceType::MESSAGE)
@@ -65,7 +74,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync + Send + Sync>> {
         cache.update(&event);
 
         // Spawn a new task to handle the event
-        tokio::spawn(handle_event(shard_id, event, Arc::clone(&http)));
+        tokio::spawn(handle_event(shard_id, event, Arc::clone(&appstate)));
     }
 
     Ok(())
@@ -74,25 +83,30 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync + Send + Sync>> {
 async fn handle_event(
     shard_id: u64,
     event: Event,
-    http: Arc<HttpClient>,
+    appstate: Arc<ApplicationState>,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     match event {
         Event::InteractionCreate(interaction) => {
-            handle_interaction(http.deref(), interaction).await?;
+            handle_interaction(appstate.deref(), interaction).await?;
         }
         Event::ShardConnected(_) => {
             println!("Connected on shard {}", shard_id);
-            println!("Set guid commands for appid {:?}", http.application_id());
-            http.set_guild_commands(
-                GuildId::from(NonZeroU64::new(458035170608545802).unwrap()),
-                &get_application_commands()
-                    .iter()
-                    .map(|x| x.deref().deref())
-                    .cloned()
-                    .collect::<Vec<Command>>(),
-            )?
-            .exec()
-            .await?;
+            println!(
+                "Set guid commands for appid {:?}",
+                appstate.http.application_id()
+            );
+            appstate
+                .http
+                .set_guild_commands(
+                    GuildId::from(NonZeroU64::new(458035170608545802).unwrap()),
+                    &get_application_commands()
+                        .iter()
+                        .map(|x| x.deref().deref())
+                        .cloned()
+                        .collect::<Vec<Command>>(),
+                )?
+                .exec()
+                .await?;
         }
         _ => {}
     }

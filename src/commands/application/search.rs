@@ -1,10 +1,10 @@
 use crate::helpers::youtube;
 
 use super::ApplicationCommandWrapper;
+use crate::state::ApplicationState;
 use async_trait::async_trait;
 use std::error::Error;
 use std::ops::Deref;
-use twilight_http::Client as HttpClient;
 use twilight_model::application::command::{Command, CommandType};
 use twilight_model::application::component::button::ButtonStyle;
 
@@ -48,7 +48,7 @@ impl Deref for Search {
 impl ApplicationCommandWrapper for Search {
     async fn execute(
         &self,
-        http: &HttpClient,
+        appstate: &ApplicationState,
         interaction: Interaction,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         if let Interaction::ApplicationCommand(interaction) = interaction {
@@ -58,9 +58,11 @@ impl ApplicationCommandWrapper for Search {
                 .build();
 
             let response = InteractionResponse::ChannelMessageWithSource(callback);
-            let search_msg_fut = http
+            appstate
+                .http
                 .interaction_callback(interaction.id, &interaction.token, &response)
-                .exec();
+                .exec()
+                .await?;
             let query = interaction.data.options[0].value.clone();
             if let CommandOptionValue::String(query) = query {
                 let yt_fut = async move {
@@ -86,18 +88,15 @@ impl ApplicationCommandWrapper for Search {
                         query,
                         results.len()
                     );
-                    http.update_interaction_original(&interaction.token)?
+                    appstate
+                        .http
+                        .update_interaction_original(&interaction.token)?
                         .content(Some(&s))?
                         .components(Some(&[action_row]))?
                         .exec()
                         .await?;
-                    println!("handle play with id: {}", interaction.id);
-                    for video in results {
-                        println!("vid res {:#?}", video.title);
-                    }
                     Ok::<(), Box<dyn Error + Send + Sync>>(())
                 };
-                search_msg_fut.await?;
 
                 yt_fut.await?;
 
