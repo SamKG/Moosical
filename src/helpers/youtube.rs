@@ -1,27 +1,38 @@
+use serde::Deserialize;
+
 use std::{
     error::Error,
     path::PathBuf,
     process::{Command, Stdio},
 };
-use youtube_dl::{SearchOptions, SingleVideo, YoutubeDl, YoutubeDlOutput};
 
 const YT_DLP_PATH: &str = "/data/samyakg/anaconda3/bin/yt-dlp";
 const AUDIO_DOWNLOAD_PATH: &str = "/dev/shm";
 
+#[derive(Deserialize, Clone)]
+pub(crate) struct VideoInfo {
+    pub(crate) title: String,
+    pub(crate) video_id: String,
+}
 
 pub(crate) async fn search_for(
     query: &str,
     num_results: usize,
-) -> Result<Vec<SingleVideo>, Box<dyn Error + Send + Sync>> {
-    let results = YoutubeDl::search_for(&SearchOptions::youtube(query).with_count(num_results))
-        .youtube_dl_path(YT_DLP_PATH)
-        .flat_playlist(true)
-        .run()?;
-    match results {
-        YoutubeDlOutput::Playlist(results) => Ok(results.entries.unwrap()),
-        _ => {
-            panic!("Unhandled result type!");
-        }
+) -> Result<Vec<VideoInfo>, Box<dyn Error + Send + Sync>> {
+    let stdout = Stdio::piped();
+    let output = Command::new("python3")
+        .arg("./search_yt.py")
+        .arg("--query")
+        .arg(format!("\"{query}\""))
+        .stdout(stdout)
+        .output()?;
+    match output.status.success() {
+        true => Ok(serde_json::from_slice::<Vec<VideoInfo>>(&output.stdout)?
+            .iter()
+            .take(num_results)
+            .cloned()
+            .collect()),
+        false => panic!("{}", String::from_utf8_lossy(&output.stderr)),
     }
 }
 

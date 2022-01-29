@@ -73,7 +73,7 @@ impl ApplicationCommandWrapper for Search {
                             Component::Button(Button {
                                 emoji: None,
                                 label: Some(v.title.clone()),
-                                custom_id: Some(v.url.as_ref().unwrap().clone()),
+                                custom_id: Some(v.video_id.clone()),
                                 disabled: false,
                                 style: ButtonStyle::Primary,
                                 url: None,
