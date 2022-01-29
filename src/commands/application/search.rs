@@ -65,40 +65,40 @@ impl ApplicationCommandWrapper for Search {
                 .await?;
             let query = interaction.data.options[0].value.clone();
             if let CommandOptionValue::String(query) = query {
-                let yt_fut = async move {
+                let search_response = async move {
                     let results = youtube::search_for(&query, 5).await?;
-                    let menu_options = results
+                    let menu_options: Vec<Component> = results
                         .iter()
                         .map(|v| {
-                            Component::Button(Button {
-                                emoji: None,
-                                label: Some(v.title.clone()),
-                                custom_id: Some(v.video_id.clone()),
-                                disabled: false,
-                                style: ButtonStyle::Primary,
-                                url: None,
+                            Component::ActionRow(ActionRow {
+                                components: vec![Component::Button(Button {
+                                    emoji: None,
+                                    label: Some(v.title.clone()),
+                                    custom_id: Some(v.video_id.clone()),
+                                    disabled: false,
+                                    style: ButtonStyle::Primary,
+                                    url: None,
+                                })],
                             })
                         })
                         .collect();
-                    let action_row = Component::ActionRow(ActionRow {
-                        components: menu_options,
-                    });
                     let s = format!(
                         "Searched for `{}` and found {} results:",
                         query,
                         results.len()
                     );
+                    println!("sending response to search..");
                     appstate
                         .http
                         .update_interaction_original(&interaction.token)?
                         .content(Some(&s))?
-                        .components(Some(&[action_row]))?
+                        .components(Some(&menu_options))?
                         .exec()
                         .await?;
                     Ok::<(), Box<dyn Error + Send + Sync>>(())
                 };
 
-                yt_fut.await?;
+                search_response.await?;
 
                 Ok(())
             } else {

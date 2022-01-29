@@ -1,0 +1,4 @@
+# copy and paste this file to a new one called `config.toml`, with the following values filled in
+[discord]
+token="your discord token"
+app_id="your discord app id"
