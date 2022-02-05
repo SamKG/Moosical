@@ -10,7 +10,7 @@ use crate::state::YoutubeConfig;
 pub(crate) struct VideoInfo {
     pub(crate) title: String,
     pub(crate) video_id: String,
-    pub(crate) length: u64,
+    pub(crate) length: f64,
 }
 
 pub(crate) async fn search_for(
@@ -29,9 +29,14 @@ pub(crate) async fn search_for(
                 .unwrap()
                 .iter()
                 .map(|v| VideoInfo {
-                    title: v.title.clone(),
+                    title: dbg!(v).title.clone(),
                     video_id: v.id.clone(),
-                    length: 0,
+                    length: v
+                        .duration
+                        .clone()
+                        .and_then(|d| d.as_f64())
+                        .or(Some(0.0))
+                        .unwrap(),
                 })
                 .collect()),
             _ => {

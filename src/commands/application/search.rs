@@ -74,7 +74,11 @@ impl ApplicationCommandWrapper for Search {
                     let results: Vec<VideoInfo> = results
                         .iter()
                         .map(|v| {
-                            let duration_str = format!("({}:{})", v.length / 60, v.length % 60);
+                            let duration_str = format!(
+                                "({}:{:02})",
+                                v.length.round() as i64 / 60,
+                                v.length.round() as i64 % 60
+                            );
                             VideoInfo {
                                 title: format!(
                                     "{} {}",
