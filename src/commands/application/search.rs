@@ -66,7 +66,7 @@ impl ApplicationCommandWrapper for Search {
             let query = interaction.data.options[0].value.clone();
             if let CommandOptionValue::String(query) = query {
                 let search_response = async move {
-                    let results = youtube::search_for(&query, 5).await?;
+                    let results = youtube::search::search_for(&query, 5).await?;
                     let menu_options: Vec<Component> = results
                         .iter()
                         .map(|v| {

@@ -1,7 +1,7 @@
 use futures::{lock::Mutex, stream::StreamExt};
 use moosicyak::{
     commands::{application::get_application_commands, handle_interaction},
-    state::ApplicationState,
+    state::{ApplicationConfig, ApplicationState},
 };
 use serde::Deserialize;
 use std::{collections::HashMap, error::Error, num::NonZeroU64, ops::Deref, sync::Arc};
@@ -16,20 +16,10 @@ use twilight_model::{
     id::{ApplicationId, GuildId},
 };
 
-#[derive(Deserialize)]
-struct DiscordConfig {
-    token: String,
-    app_id: NonZeroU64,
-}
-#[derive(Deserialize)]
-struct Config {
-    discord: DiscordConfig,
-}
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync + Send + Sync>> {
     let config_string = std::fs::read_to_string("config.toml")?;
-    let config: Config = toml::from_str(&config_string)?;
+    let config: ApplicationConfig = toml::from_str(&config_string)?;
 
     // This is also the default.
     let scheme = ShardScheme::Auto;
@@ -60,6 +50,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync + Send + Sync>> {
     let appstate = Arc::new(ApplicationState {
         http,
         guild_states: Mutex::new(HashMap::new()),
+        config,
     });
 
     // Since we only care about messages, make the cache only process messages.

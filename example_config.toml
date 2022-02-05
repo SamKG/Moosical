@@ -2,3 +2,7 @@
 [discord]
 token="your discord token"
 app_id="your discord app id"
+
+[youtube]
+yt_dlp_path="path to yt-dlp"
+audio_download_path="path to download audio files to"
