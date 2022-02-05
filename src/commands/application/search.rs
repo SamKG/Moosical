@@ -1,4 +1,5 @@
 use crate::helpers::youtube;
+use crate::helpers::youtube::search::VideoInfo;
 
 use super::ApplicationCommandWrapper;
 use crate::state::ApplicationState;
@@ -63,10 +64,33 @@ impl ApplicationCommandWrapper for Search {
                 .interaction_callback(interaction.id, &interaction.token, &response)
                 .exec()
                 .await?;
+
             let query = interaction.data.options[0].value.clone();
             if let CommandOptionValue::String(query) = query {
                 let search_response = async move {
-                    let results = youtube::search::search_for(&query, 5).await?;
+                    let results =
+                        youtube::search::search_for(&query, 5, &appstate.config.youtube).await?;
+
+                    let results: Vec<VideoInfo> = results
+                        .iter()
+                        .map(|v| {
+                            let duration_str = format!("({}:{})", v.length / 60, v.length % 60);
+                            VideoInfo {
+                                title: format!(
+                                    "{} {}",
+                                    duration_str,
+                                    v.title.replace(|c: char| !c.is_ascii(), ""),
+                                )
+                                .chars()
+                                .into_iter()
+                                .take(80)
+                                .collect(),
+                                video_id: v.video_id.clone(),
+                                length: v.length,
+                            }
+                        })
+                        .collect();
+
                     let menu_options: Vec<Component> = results
                         .iter()
                         .map(|v| {

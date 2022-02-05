@@ -3,7 +3,7 @@ use moosicyak::{
     commands::{application::get_application_commands, handle_interaction},
     state::{ApplicationConfig, ApplicationState},
 };
-use serde::Deserialize;
+
 use std::{collections::HashMap, error::Error, num::NonZeroU64, ops::Deref, sync::Arc};
 use twilight_cache_inmemory::{InMemoryCache, ResourceType};
 use twilight_gateway::{

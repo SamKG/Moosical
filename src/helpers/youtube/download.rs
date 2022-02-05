@@ -17,6 +17,7 @@ pub(crate) async fn download_audio(
         .arg(format!("-P {audio_download_path}"))
         .stdout(stdout)
         .output()?;
+
     match output.status.success() {
         true => {
             let output_str = String::from_utf8_lossy(&output.stdout);
