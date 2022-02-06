@@ -1,8 +1,12 @@
 use futures::lock::Mutex;
 use serde::Deserialize;
-use std::{collections::HashMap, num::NonZeroU64, path::PathBuf};
+use std::{collections::HashMap, num::NonZeroU64, path::PathBuf, sync::Arc};
+use tokio::{sync::mpsc, task::JoinHandle};
 use twilight_http::Client as HttpClient;
-use twilight_model::{id::GuildId, user::User};
+use twilight_model::{
+    id::{ChannelId, GuildId},
+    user::User,
+};
 use url::Url;
 
 #[derive(Debug)]
@@ -20,9 +24,40 @@ pub struct EnqueuedVideo {
     pub(crate) downloaded_path: Option<PathBuf>,
 }
 
-#[derive(std::default::Default, Debug)]
+#[derive(Debug)]
 pub struct GuildState {
-    pub(crate) queue: Vec<EnqueuedVideo>,
+    pub(crate) sender: mpsc::Sender<EnqueuedVideo>,
+    thread_handle: JoinHandle<()>,
+}
+
+impl GuildState {
+    pub(crate) fn new(appstate: &Arc<ApplicationState>) -> GuildState {
+        let (tx, mut rx) = mpsc::channel(128);
+        let appstate = appstate.clone();
+        let handle = tokio::spawn(async move {
+            loop {
+                match rx.recv().await {
+                    Some(_) => {
+                        println!("Working...");
+                        appstate
+                            .http
+                            .channel(ChannelId::new(458035170608545806).unwrap())
+                            .exec()
+                            .await
+                            .unwrap();
+                    }
+                    None => {
+                        println!("Terminating.");
+                        break;
+                    }
+                }
+            }
+        });
+        GuildState {
+            sender: tx,
+            thread_handle: handle,
+        }
+    }
 }
 
 #[derive(Deserialize, Debug)]

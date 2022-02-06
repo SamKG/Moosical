@@ -3,6 +3,7 @@ use crate::state::ApplicationState;
 use async_trait::async_trait;
 use std::error::Error;
 use std::ops::Deref;
+use std::sync::Arc;
 use twilight_model::application::command::{Command, CommandType};
 use twilight_model::application::interaction::Interaction;
 use twilight_model::{application::callback::InteractionResponse, channel::message::MessageFlags};
@@ -38,7 +39,7 @@ impl Deref for Ping {
 impl ApplicationCommandWrapper for Ping {
     async fn execute(
         &self,
-        appstate: &ApplicationState,
+        appstate: Arc<ApplicationState>,
         interaction: Interaction,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         if let Interaction::ApplicationCommand(interaction) = interaction {

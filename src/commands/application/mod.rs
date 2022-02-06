@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use std::error::Error;
 use std::ops::Deref;
+use std::sync::Arc;
 use twilight_model::application::command::Command;
 use twilight_model::application::interaction::Interaction;
 
@@ -13,7 +14,7 @@ pub(crate) mod search;
 pub trait ApplicationCommandWrapper: Deref<Target = Command> + Sync + Send {
     async fn execute(
         &self,
-        appstate: &ApplicationState,
+        appstate: Arc<ApplicationState>,
         interaction: Interaction,
     ) -> Result<(), Box<dyn Error + Send + Sync>>;
 }

@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use std::error::Error;
 use std::ops::Deref;
+use std::sync::Arc;
 
 use twilight_model::application::interaction::Interaction;
 
@@ -16,7 +17,7 @@ pub struct MessageComponent {
 pub trait MessageComponentWrapper: Deref<Target = MessageComponent> + Sync + Send {
     async fn execute(
         &self,
-        appstate: &ApplicationState,
+        appstate: Arc<ApplicationState>,
         interaction: Interaction,
     ) -> Result<(), Box<dyn Error + Send + Sync>>;
 }

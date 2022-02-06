@@ -6,6 +6,7 @@ use crate::state::ApplicationState;
 use async_trait::async_trait;
 use std::error::Error;
 use std::ops::Deref;
+use std::sync::Arc;
 use twilight_model::application::command::{Command, CommandType};
 use twilight_model::application::component::button::ButtonStyle;
 
@@ -49,7 +50,7 @@ impl Deref for Search {
 impl ApplicationCommandWrapper for Search {
     async fn execute(
         &self,
-        appstate: &ApplicationState,
+        appstate: Arc<ApplicationState>,
         interaction: Interaction,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         if let Interaction::ApplicationCommand(interaction) = interaction {
@@ -71,37 +72,13 @@ impl ApplicationCommandWrapper for Search {
                     let results =
                         youtube::search::search_for(&query, 5, &appstate.config.youtube).await?;
 
-                    let results: Vec<VideoInfo> = results
-                        .iter()
-                        .map(|v| {
-                            let duration_str = format!(
-                                "({}:{:02})",
-                                v.length.round() as i64 / 60,
-                                v.length.round() as i64 % 60
-                            );
-                            VideoInfo {
-                                title: format!(
-                                    "{} {}",
-                                    duration_str,
-                                    v.title.replace(|c: char| !c.is_ascii(), ""),
-                                )
-                                .chars()
-                                .into_iter()
-                                .take(80)
-                                .collect(),
-                                video_id: v.video_id.clone(),
-                                length: v.length,
-                            }
-                        })
-                        .collect();
-
                     let menu_options: Vec<Component> = results
                         .iter()
                         .map(|v| {
                             Component::ActionRow(ActionRow {
                                 components: vec![Component::Button(Button {
                                     emoji: None,
-                                    label: Some(v.title.clone()),
+                                    label: Some(v.get_discord_interaction_str()),
                                     custom_id: Some(v.video_id.clone()),
                                     disabled: false,
                                     style: ButtonStyle::Primary,

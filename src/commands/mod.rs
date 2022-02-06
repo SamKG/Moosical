@@ -5,11 +5,12 @@ use crate::state::ApplicationState;
 use self::message::get_message_components;
 use application::get_application_commands;
 use std::error::Error;
+use std::sync::Arc;
 use twilight_model::application::interaction::Interaction;
 use twilight_model::gateway::payload::incoming::InteractionCreate;
 
 pub async fn handle_interaction(
-    appstate: &ApplicationState,
+    appstate: Arc<ApplicationState>,
     interaction_create: Box<InteractionCreate>,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     match interaction_create.0 {

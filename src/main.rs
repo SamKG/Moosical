@@ -78,7 +78,7 @@ async fn handle_event(
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     match event {
         Event::InteractionCreate(interaction) => {
-            handle_interaction(appstate.deref(), interaction).await?;
+            handle_interaction(appstate, interaction).await?;
         }
         Event::ShardConnected(_) => {
             println!("Connected on shard {}", shard_id);

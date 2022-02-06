@@ -13,6 +13,25 @@ pub(crate) struct VideoInfo {
     pub(crate) length: f64,
 }
 
+impl VideoInfo {
+    pub(crate) fn get_discord_interaction_str(&self) -> String {
+        let duration_str = format!(
+            "({}:{:02})",
+            self.length.round() as i64 / 60,
+            self.length.round() as i64 % 60
+        );
+        format!(
+            "{} {}",
+            duration_str,
+            self.title.replace(|c: char| !c.is_ascii(), ""),
+        )
+        .chars()
+        .into_iter()
+        .take(80)
+        .collect()
+    }
+}
+
 pub(crate) async fn search_for(
     query: &str,
     num_results: usize,
