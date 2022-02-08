@@ -1,7 +1,10 @@
 use futures::lock::Mutex;
 use serde::Deserialize;
 use std::{collections::HashMap, num::NonZeroU64, path::PathBuf, sync::Arc};
-use tokio::{sync::mpsc, task::JoinHandle};
+use tokio::{
+    sync::{mpsc, RwLock},
+    task::JoinHandle,
+};
 use twilight_cache_inmemory::InMemoryCache;
 use twilight_http::Client as HttpClient;
 use twilight_model::{
@@ -13,7 +16,7 @@ use url::Url;
 #[derive(Debug)]
 pub struct ApplicationState {
     pub http: HttpClient,
-    pub guild_states: Mutex<HashMap<GuildId, GuildState>>,
+    pub guild_states: RwLock<HashMap<GuildId, GuildState>>,
     pub config: ApplicationConfig,
     pub cache: InMemoryCache,
 }
@@ -33,7 +36,7 @@ pub struct GuildState {
 }
 
 impl GuildState {
-    pub(crate) fn new(appstate: &Arc<ApplicationState>) -> GuildState {
+    pub fn new(appstate: &Arc<ApplicationState>) -> GuildState {
         let (tx, mut rx) = mpsc::channel(128);
         let appstate = appstate.clone();
         let handle = tokio::spawn(async move {

@@ -1,8 +1,9 @@
 use futures::{lock::Mutex, stream::StreamExt};
 use moosicyak::{
     commands::{application::get_application_commands, handle_interaction},
-    state::{ApplicationConfig, ApplicationState},
+    state::{ApplicationConfig, ApplicationState, GuildState},
 };
+use tokio::sync::RwLock;
 
 use std::{collections::HashMap, error::Error, num::NonZeroU64, ops::Deref, sync::Arc};
 use twilight_cache_inmemory::{InMemoryCache, ResourceType};
@@ -50,13 +51,15 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync + Send + Sync>> {
     let http = HttpClient::new(config.discord.token.clone());
     http.set_application_id(ApplicationId::from(config.discord.app_id));
 
+    let user_id = http.current_user().exec().await?.model().await?.id;
+
     let cache = InMemoryCache::builder()
         .resource_types(ResourceType::MESSAGE | ResourceType::VOICE_STATE | ResourceType::GUILD)
         .build();
 
     let appstate = Arc::new(ApplicationState {
         http,
-        guild_states: Mutex::new(HashMap::new()),
+        guild_states: RwLock::new(HashMap::new()),
         config,
         cache,
     });
@@ -101,6 +104,10 @@ async fn handle_event(
                 )?
                 .exec()
                 .await?;
+        }
+        Event::GuildCreate(guild) => {
+            let mut guild_states = appstate.guild_states.write().await;
+            guild_states.insert(guild.id, GuildState::new(&appstate));
         }
         _ => {}
     }

@@ -92,12 +92,8 @@ impl MessageComponentWrapper for Search {
                     }
 
                     let sender = {
-                        let mut guild_state_map = appstate.guild_states.lock().await;
-                        guild_state_map
-                            .entry(guild_id)
-                            .or_insert_with(|| GuildState::new(appstate))
-                            .sender
-                            .clone()
+                        let guild_state_map = appstate.guild_states.read().await;
+                        guild_state_map[&guild_id].sender.clone()
                     };
 
                     sender
