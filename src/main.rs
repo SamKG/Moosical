@@ -26,7 +26,10 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync + Send + Sync>> {
 
     // Specify intents requesting events about things like new and updated
     // messages in a guild and direct messages.
-    let intents = Intents::GUILD_MESSAGES | Intents::DIRECT_MESSAGES;
+    let intents = Intents::GUILD_MESSAGES
+        | Intents::DIRECT_MESSAGES
+        | Intents::GUILDS
+        | Intents::GUILD_VOICE_STATES;
 
     let (cluster, mut events) = Cluster::builder(config.discord.token.clone(), intents)
         .shard_scheme(scheme)
@@ -47,22 +50,22 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync + Send + Sync>> {
     let http = HttpClient::new(config.discord.token.clone());
     http.set_application_id(ApplicationId::from(config.discord.app_id));
 
+    let cache = InMemoryCache::builder()
+        .resource_types(ResourceType::MESSAGE | ResourceType::VOICE_STATE | ResourceType::GUILD)
+        .build();
+
     let appstate = Arc::new(ApplicationState {
         http,
         guild_states: Mutex::new(HashMap::new()),
         config,
+        cache,
     });
-
-    // Since we only care about messages, make the cache only process messages.
-    let cache = InMemoryCache::builder()
-        .resource_types(ResourceType::MESSAGE)
-        .build();
 
     // Startup an event loop to process each event in the event stream as they
     // come in.
     while let Some((shard_id, event)) = events.next().await {
         // Update the cache.
-        cache.update(&event);
+        appstate.cache.update(&event);
 
         // Spawn a new task to handle the event
         tokio::spawn(handle_event(shard_id, event, Arc::clone(&appstate)));

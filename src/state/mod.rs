@@ -2,6 +2,7 @@ use futures::lock::Mutex;
 use serde::Deserialize;
 use std::{collections::HashMap, num::NonZeroU64, path::PathBuf, sync::Arc};
 use tokio::{sync::mpsc, task::JoinHandle};
+use twilight_cache_inmemory::InMemoryCache;
 use twilight_http::Client as HttpClient;
 use twilight_model::{
     id::{ChannelId, GuildId},
@@ -14,6 +15,7 @@ pub struct ApplicationState {
     pub http: HttpClient,
     pub guild_states: Mutex<HashMap<GuildId, GuildState>>,
     pub config: ApplicationConfig,
+    pub cache: InMemoryCache,
 }
 
 #[derive(Debug)]

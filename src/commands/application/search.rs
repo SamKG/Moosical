@@ -50,7 +50,7 @@ impl Deref for Search {
 impl ApplicationCommandWrapper for Search {
     async fn execute(
         &self,
-        appstate: Arc<ApplicationState>,
+        appstate: &Arc<ApplicationState>,
         interaction: Interaction,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         if let Interaction::ApplicationCommand(interaction) = interaction {

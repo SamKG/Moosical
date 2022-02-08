@@ -14,7 +14,7 @@ pub(crate) mod search;
 pub trait ApplicationCommandWrapper: Deref<Target = Command> + Sync + Send {
     async fn execute(
         &self,
-        appstate: Arc<ApplicationState>,
+        appstate: &Arc<ApplicationState>,
         interaction: Interaction,
     ) -> Result<(), Box<dyn Error + Send + Sync>>;
 }

@@ -20,7 +20,7 @@ pub async fn handle_interaction(
                 .iter()
                 .find(|x| x.name == interaction.data.name)
                 .unwrap();
-            handler.execute(appstate, interaction_create.0).await?;
+            handler.execute(&appstate, interaction_create.0).await?;
             Ok(())
         }
         Interaction::MessageComponent(ref interaction) => {
@@ -29,7 +29,7 @@ pub async fn handle_interaction(
                 .iter()
                 .find(|x| x.name == interaction.message.interaction.as_ref().unwrap().name)
                 .unwrap();
-            handler.execute(appstate, interaction_create.0).await?;
+            handler.execute(&appstate, interaction_create.0).await?;
             Ok(())
         }
         _ => panic!("Received invalid interaction!"),
